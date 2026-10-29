@@ -13,6 +13,8 @@ FEEDS = {
     "Highsnobiety": "https://www.highsnobiety.com/feed/",
     "WWD": "https://wwd.com/feed/",
     "Fashionista": "https://fashionista.com/.rss/full/",
+    "Who What Wear": "https://www.whowhatwear.com/rss",
+    "Business of Fashion": "https://www.businessoffashion.com/arc/outboundfeeds/rss/",
     # Pinterest 公开画板格式（把用户名和画板名换成真实的）：
     # "Pinterest-某画板": "https://www.pinterest.com/用户名/画板名.rss",
 }
@@ -33,6 +35,12 @@ CATS = {
 # 禁区过滤：命中即丢弃
 BLOCK = ["lingerie", "bikini", "sexy", "thong", "underwear", "topless", "micro mini", "sheer",
          "disney", "licensed", "cartoon", "neon"]
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+}
 
 
 def hit(text, words):
@@ -55,9 +63,13 @@ SEEN = "docs/seen.json"
 seen = set(json.load(open(SEEN, encoding="utf-8"))) if os.path.exists(SEEN) else set()
 
 items = []
+status = []
 for src, url in FEEDS.items():
     try:
-        d = feedparser.parse(url, request_headers={"User-Agent": "Mozilla/5.0"})
+        r = requests.get(url, headers=HEADERS, timeout=25)
+        d = feedparser.parse(r.content)
+        total = len(d.entries)
+        kept = 0
         for e in d.entries[:30]:
             link = e.get("link", "")
             if not link or link in seen:
@@ -71,8 +83,13 @@ for src, url in FEEDS.items():
             items.append({"source": src, "title": title, "summary": summ,
                           "link": link, "image": get_image(e), "category": cat})
             seen.add(link)
+            kept += 1
+        status.append("%s：HTTP %s，读到 %d 条，入选 %d 条" % (src, r.status_code, total, kept))
     except Exception as ex:
-        print("来源失败，已跳过：", src, ex)
+        status.append("%s：失败（%s）" % (src, str(ex)[:60]))
+
+for s in status:
+    print(s)
 
 json.dump(sorted(seen), open(SEEN, "w", encoding="utf-8"))
 
@@ -107,7 +124,7 @@ for cat, lst in by_cat.items():
 if items:
     content = '<a href="%s">👉 点开看今日完整图文页</a><br><br>' % page + "<br>".join(lines)
 else:
-    content = "今天没有抓到新内容"
+    content = "今天没有抓到新内容<br><br><b>各来源状态：</b><br>" + "<br>".join(status)
 requests.post("https://www.pushplus.plus/send", json={
     "token": os.environ["PUSHPLUS_TOKEN"],
     "title": TODAY + " 童装趋势日报",
