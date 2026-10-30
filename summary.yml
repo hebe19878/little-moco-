@@ -1,0 +1,35 @@
+name: summary-report
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 北京时间每天 08:00，脚本自己判断今天要不要发
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "周期：week（周）/ month（月）/ quarter（季）"
+        default: "week"
+      todate:
+        description: "汇总本周期至今（数据刚开始积累时选 true）"
+        default: "true"
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python summary.py
+        env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          MODE: ${{ github.event.inputs.mode }}
+          TODATE: ${{ github.event.inputs.todate }}
+      - run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git commit -m "summary $(date +%F)" || echo "nothing to commit"
+          git pull --rebase || true
+          git push
