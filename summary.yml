@@ -1,14 +1,14 @@
 name: summary-report
 on:
   schedule:
-    - cron: "0 0 * * *"   # 北京时间每天 08:00，脚本自己判断今天要不要发
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       mode:
-        description: "周期：week（周）/ month（月）/ quarter（季）"
+        description: "week / month / quarter"
         default: "week"
       todate:
-        description: "汇总本周期至今（数据刚开始积累时选 true）"
+        description: "true = summarize this period so far"
         default: "true"
 permissions:
   contents: write
